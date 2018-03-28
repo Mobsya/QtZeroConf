@@ -29,13 +29,21 @@
 #include <avahi-core/core.h>
 #include <avahi-core/publish.h>
 #include <avahi-core/lookup.h>
+#include <avahi-core/log.h>
 #include <avahi-common/simple-watch.h>
 #include <QCoreApplication>
+#include <QDebug>
 #include "qzeroconf.h"
+
 
 class QZeroConfPrivate
 {
 public:
+	static void log(AvahiLogLevel, const char* txt)
+	{
+		qDebug() << txt;
+	}
+
 	QZeroConfPrivate(QZeroConf *parent)
 	{
 		qint32 error;

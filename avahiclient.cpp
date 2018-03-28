@@ -29,12 +29,18 @@
 #include <avahi-client/client.h>
 #include <avahi-client/publish.h>
 #include <avahi-common/error.h>
+#include <avahi-core/log.h>
 #include <avahi-client/lookup.h>
 #include "qzeroconf.h"
+#include <QDebug>
 
 class QZeroConfPrivate
 {
 public:
+	static void log(AvahiLogLevel, const char* txt)
+	{
+		qDebug() << txt;
+	}
 	QZeroConfPrivate(QZeroConf *parent)
 	{
 		qint32 error;
