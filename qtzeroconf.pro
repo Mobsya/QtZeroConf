@@ -13,3 +13,4 @@ mac:QMAKE_FRAMEWORK_BUNDLE_NAME = $$TARGET
 target.path = $$PREFIX/lib
 
 INSTALLS += target
+DESTDIR = ../..
