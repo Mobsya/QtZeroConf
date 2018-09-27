@@ -172,18 +172,19 @@ public:
 				zcs.setHost(host_name);
 				zcs.setInterfaceIndex(interface);
 				zcs.setPort(port);
-				while (txt)	// get txt records
-				{
-					QByteArray avahiText((const char *)txt->text, txt->size);
-					QList<QByteArray> pair = avahiText.split('=');
-					if (pair.size() == 2)
-						zcs.appendTxt(pair.at(0), pair.at(1));
-					else
-						zcs.appendTxt(pair.at(0));
-					txt = txt->next;
-				}
-				ref->pub->services.insert(key, zcs);
-			}
+            }
+            zcs.setTxt({});
+            while (txt)	// get txt records
+            {
+                QByteArray avahiText((const char *)txt->text, txt->size);
+                QList<QByteArray> pair = avahiText.split('=');
+                if (pair.size() == 2)
+                    zcs.appendTxt(pair.at(0), pair.at(1));
+                else
+                    zcs.appendTxt(pair.at(0));
+                txt = txt->next;
+            }
+            ref->pub->services.insert(key, zcs);
 
 			char a[AVAHI_ADDRESS_STR_MAX];
 			avahi_address_snprint(a, sizeof(a), address);
