@@ -228,7 +228,8 @@ void QZeroConfPrivate::cleanUp(DNSServiceRef toClean)
 			delete resolverSocket;
 			resolverSocket = NULL;
 		}
-		work.dequeue();
+		if(!work.empty())
+			work.dequeue();
 		if (work.size())
 			resolve();
 	}
