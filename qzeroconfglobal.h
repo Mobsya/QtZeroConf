@@ -28,6 +28,7 @@
 #define QZEROCONFGLOBAL_H
 
 #include <QtCore/QtGlobal>
+#include <QLoggingCategory>
 
 #if (!defined(QT_STATIC) && !defined(QZEROCONF_STATIC))
 #	ifdef QT_BUILD_ZEROCONF_LIB
@@ -38,5 +39,7 @@
 #else
 #	define Q_ZEROCONF_EXPORT
 #endif
+
+Q_DECLARE_LOGGING_CATEGORY(zeroconf);
 
 #endif // QZEROCONFGLOBAL_H

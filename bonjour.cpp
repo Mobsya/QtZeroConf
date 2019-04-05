@@ -69,6 +69,13 @@ void QZeroConfPrivate::resolve(void)
 	DNSServiceErrorType err;
 
 	err = DNSServiceResolve(&resolver, kDNSServiceFlagsTimeout, work.head().interfaceIndex(), work.head().name().toUtf8(), work.head().type().toUtf8(), work.head().domain().toUtf8(), (DNSServiceResolveReply) resolverCallback, this);
+
+    qCDebug(zeroconf) << "resolve: " << work.head().interfaceIndex()
+                      << work.head().name()
+                      << work.head().type()
+                      << work.head().domain()
+                      << err;
+
 	if (err == kDNSServiceErr_NoError) {
 		int sockfd = DNSServiceRefSockFD(resolver);
 		if (sockfd == -1) {
@@ -105,7 +112,7 @@ void DNSSD_API QZeroConfPrivate::browseCallback(DNSServiceRef, DNSServiceFlags f
 	QZeroConfService zcs;
 	QZeroConfPrivate *ref = static_cast<QZeroConfPrivate *>(userdata);
 
-	//qDebug() << name;
+    qCDebug(zeroconf) << "browseCallback: " << name << type << domain << err << flags;
 	if (err == kDNSServiceErr_NoError) {
 		key = name + QString::number(interfaceIndex);
 		if (flags & kDNSServiceFlagsAdd) {
@@ -140,6 +147,9 @@ void DNSSD_API QZeroConfPrivate::resolverCallback(DNSServiceRef, DNSServiceFlags
 		const char * txtRecord, void *userdata)
 {
 	QZeroConfPrivate *ref = static_cast<QZeroConfPrivate *>(userdata);
+
+    qCDebug(zeroconf) << "resolverCallback: " << interfaceIndex << err << hostName << port << txtLen;
+
 
 	if (err != kDNSServiceErr_NoError) {
 		ref->cleanUp(ref->resolver);
@@ -191,6 +201,8 @@ void DNSSD_API QZeroConfPrivate::addressReply(DNSServiceRef sdRef,
 
 	QZeroConfPrivate *ref = static_cast<QZeroConfPrivate *>(userdata);
 
+    qCDebug(zeroconf) << "addressReply: " << interfaceIndex << err << hostName;
+
 	if (err == kDNSServiceErr_NoError) {
 		if ((flags & kDNSServiceFlagsAdd) != 0) {
 			QHostAddress hAddress(address);
@@ -203,9 +215,12 @@ void DNSSD_API QZeroConfPrivate::addressReply(DNSServiceRef sdRef,
 			if (!ref->pub->services.contains(key)) {
 				ref->pub->services.insert(key, ref->work.head());
 				emit ref->pub->serviceAdded(ref->work.head());
+                qCDebug(zeroconf) << "addressReply:  service added";
 			}
-			else
+            else {
 				emit ref->pub->serviceUpdated(ref->work.head());
+                qCDebug(zeroconf) << "addressReply:  service updated";
+            }
 
 		}
 		if (!(flags & kDNSServiceFlagsMoreComing))
@@ -368,6 +383,8 @@ void QZeroConf::startBrowser(QString type, QAbstractSocket::NetworkLayerProtocol
 		pri->cleanUp(pri->browser);
 		emit error(QZeroConf::browserFailed);
 	}
+
+    qCDebug(zeroconf) << "startBrowser: " << err << type << protocol;
 }
 
 void QZeroConf::stopBrowser(void)

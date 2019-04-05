@@ -4,6 +4,7 @@ set(CMAKE_INCLUDE_CURRENT_DIR ON)
 add_library(QtZeroConf STATIC
     qzeroconfservice.h
     qzeroconfglobal.h
+    qzeroconfglobal.cpp
     qzeroconfservice.cpp
     qzeroconf.h
 )
