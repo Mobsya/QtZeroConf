@@ -223,11 +223,9 @@ void DNSSD_API QZeroConfPrivate::addressReply(DNSServiceRef sdRef,
             }
 
 		}
-		if (!(flags & kDNSServiceFlagsMoreComing))
-			ref->cleanUp(ref->resolver);
 	}
-	else
-		ref->cleanUp(ref->resolver);
+    if (!(flags & kDNSServiceFlagsMoreComing))
+        ref->cleanUp(ref->resolver);
 }
 
 void QZeroConfPrivate::cleanUp(DNSServiceRef toClean)
