@@ -320,7 +320,8 @@ void QZeroConf::startBrowser(QString type, QAbstractSocket::NetworkLayerProtocol
 		default: avahiProtocol = AVAHI_PROTO_INET; break;
 	};
 
-	pri->browser = avahi_service_browser_new(pri->client, AVAHI_IF_UNSPEC, avahiProtocol, type.toUtf8(), NULL, AVAHI_LOOKUP_USE_MULTICAST, QZeroConfPrivate::browseCallback, pri);
+	if(pri->client)
+		pri->browser = avahi_service_browser_new(pri->client, AVAHI_IF_UNSPEC, avahiProtocol, type.toUtf8(), NULL, AVAHI_LOOKUP_USE_MULTICAST, QZeroConfPrivate::browseCallback, pri);
 	if (!pri->browser)
 		emit error(QZeroConf::browserFailed);
 }
