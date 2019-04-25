@@ -48,9 +48,16 @@ public:
 		serviceNameCollision = -2,
 		browserFailed = -3,
 	};
-    QZeroConf(QObject *parent = Q_NULLPTR);
+
+	enum class service_option {
+		no_option = 0,
+		localhost_only = 0x01,
+	};
+
+	QZeroConf(QObject *parent = Q_NULLPTR);
 	~QZeroConf();
-	void startServicePublish(const char *name, const char *type, const char *domain, quint16 port);
+	void startServicePublish(const char *name, const char *type, const char *domain, quint16 port,
+							service_option opts = service_option::no_option);
 	void stopServicePublish(void);
 	bool publishExists(void);
 	inline void startBrowser(QString type)

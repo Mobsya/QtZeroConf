@@ -33,6 +33,9 @@
 #include <avahi-client/lookup.h>
 #include "qzeroconf.h"
 #include <QDebug>
+#include <sys/types.h>
+#include <ifaddrs.h>
+#include <net/if.h>
 
 class QZeroConfPrivate
 {
@@ -59,6 +62,26 @@ public:
 		}
 	}
 
+	static int loopback_index() {
+	struct ifaddrs *ifaddr;
+	if (getifaddrs(&ifaddr) == -1) {
+		return -1;
+	}
+	int index = -1;
+	int i = 0;
+	for (auto ifa = ifaddr; ifa != nullptr; ifa = ifa->ifa_next, i++) {
+		if (ifa->ifa_addr == NULL)
+			continue;
+		auto family = ifa->ifa_addr->sa_family;
+		if ((family == AF_INET || family == AF_INET6) && (ifa->ifa_flags & IFF_LOOPBACK)) {
+			index = if_nametoindex(ifa->ifa_name);
+			break;
+		}
+	}
+	freeifaddrs(ifaddr);
+	return index;
+	}
+
 	static void groupCallback(AvahiEntryGroup *g, AvahiEntryGroupState state, AVAHI_GCC_UNUSED void *userdata)
 	{
 		qint32 ret;
@@ -79,7 +102,14 @@ public:
 				emit ref->pub->error(QZeroConf::serviceRegistrationFailed);
 				break;
 			case AVAHI_ENTRY_GROUP_UNCOMMITED:
-				ret = avahi_entry_group_add_service_strlst(g, AVAHI_IF_UNSPEC, AVAHI_PROTO_UNSPEC, AVAHI_PUBLISH_UPDATE, ref->name.toUtf8(), ref->type.toUtf8(), ref->domain.toUtf8(), NULL, ref->port, ref->txt);
+				ret = avahi_entry_group_add_service_strlst(g,
+														ref->interface,
+														AVAHI_PROTO_UNSPEC,
+														AVAHI_PUBLISH_UPDATE,
+														ref->name.toUtf8(),
+														ref->type.toUtf8(),
+														ref->domain.toUtf8(),
+														NULL, ref->port, ref->txt);
 				if (ret < 0) {
 					avahi_entry_group_free(g);
 					ref->group = NULL;
@@ -235,6 +265,7 @@ public:
 	AvahiStringList *txt;
 	QString name, type, domain;
 	quint16 port;
+	int interface = -1;
 };
 
 
@@ -253,7 +284,11 @@ QZeroConf::~QZeroConf()
 	delete pri;
 }
 
-void QZeroConf::startServicePublish(const char *name, const char *type, const char *domain, quint16 port)
+void QZeroConf::startServicePublish(const char *name,
+									const char *type,
+									const char *domain,
+									quint16 port,
+									service_option opts)
 {
 	if (pri->group) {
 		emit error(QZeroConf::serviceRegistrationFailed);
@@ -264,6 +299,7 @@ void QZeroConf::startServicePublish(const char *name, const char *type, const ch
 	pri->type = type;
 	pri->domain = domain;
 	pri->port = port;
+	pri->interface = (int(opts) & int(service_option::localhost_only)) ? QZeroConfPrivate::loopback_index() : -1;
 
 	pri->group = avahi_entry_group_new(pri->client, QZeroConfPrivate::groupCallback, pri);
 	if (!pri->group)
