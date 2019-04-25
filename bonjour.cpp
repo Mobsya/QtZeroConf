@@ -294,8 +294,8 @@ void QZeroConf::startServicePublish(const char *name,
 	}
 
 	err = DNSServiceRegister(&pri->dnssRef,
-	        (int(opts) & int(service_option::localhost_only)) kDNSServiceInterfaceIndexLocalOnly ? 0,
-			NULL,
+                             kDNSServiceFlagsDefault,
+                             (int(opts) & int(service_option::localhost_only)) ? kDNSServiceInterfaceIndexLocalOnly : 0,
 			name,
 			type,
 			domain,
