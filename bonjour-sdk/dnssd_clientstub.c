@@ -64,19 +64,7 @@ static int gDaemonErr = kDNSServiceErr_NoError;
 	static int g_initWinsock = 0;
 	#define LOG_WARNING kDebugLevelWarning
 	#define LOG_INFO kDebugLevelInfo
-	static void syslog( int priority, const char * message, ...)
-		{
-		va_list args;
-		int len;
-		char * buffer;
-		DWORD err = WSAGetLastError();
-		(void) priority;
-		va_start( args, message );
-		len = _vscprintf( message, args ) + 1;
-		buffer = malloc( len * sizeof(char) );
-		if ( buffer ) { vsprintf( buffer, message, args ); OutputDebugString( buffer ); free( buffer ); }
-		WSASetLastError( err );
-		}
+	static void syslog( int priority, const char * message, ...) {}
 #else
 
 	#include <sys/fcntl.h>		// For O_RDWR etc.
