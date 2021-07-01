@@ -30,6 +30,13 @@ QZeroConf can be built directly into your project if your project is [LGPL3](htt
 1. Clone or download QZeroConf.  If you download, unzip.
 2. Enter the qtzeroconf directory, run qmake and then make.
 
+#### Building with CMake
+Use `BUILD_SHARED_LIBS` to control whether QZeroConf should be built as static (`-DBUILD_SHARED_LIBS=OFF`) or as shared (`-DBUILD_SHARED_LIBS=ON`) library.
+The default is `OFF`.
+
+You can also build the included example project by setting `BUILD_EXAMPLE` to `ON`.
+The default for this is `OFF`
+
 ### API
 
 #### Service Publishing
@@ -84,9 +91,9 @@ QZeroConf zeroConf;
 ```
 It is recommend, but not required, that you connect a slot to QZeroConf's error() signal.
 
-3) Connect a slot to QZeroConf's serviceAdded() signal.  When serviceAdded() is emitted, it passes a pointer to the QZeroConfService recently discovered.
+3) Connect a slot to QZeroConf's serviceAdded() signal.  When serviceAdded() is emitted, it passes the QZeroConfService recently discovered.  QZeroConfServices are [shared objects](http://doc.qt.io/qt-5/implicit-sharing.html).  They are safe to use between threads.
 
-4) Optionally connect a slot to QZeroConf's serviceRemoved() signal to received status when the service is unpublished.   ServiceRemoved() passes a pointer to the service being removed.  **Do not make delayed connections with ServiceRemoved() signal.**
+4) Optionally connect a slot to QZeroConf's serviceRemoved() signal to received status when the service is unpublished.   ServiceRemoved() passes the QZeroConfService being removed.
 
 5) Call startBrowser() with the type of the service to browse for and optionally the protocol to use.
 
@@ -102,6 +109,10 @@ Only one browser can be in use per instance of QzeroConf.
 ```c++
 qDebug() << zcs->txt["Qt"];
 ```
+**QML**
+
+QZeroConf can be used in QML applications
+
 
 ### Build Dependencies
 

@@ -1,22 +1,37 @@
+project(QtZeroConf)
+cmake_minimum_required(VERSION 2.8.11)
+
 find_package(Qt5 COMPONENTS Core Network)
+
 set(CMAKE_AUTOMOC ON)
 set(CMAKE_INCLUDE_CURRENT_DIR ON)
-add_library(QtZeroConf STATIC
+
+set(PUBLIC_HEADERS
     qzeroconfservice.h
     qzeroconfglobal.h
-    qzeroconfglobal.cpp
-    qzeroconfservice.cpp
     qzeroconf.h
 )
+add_library(QtZeroConf
+    ${PUBLIC_HEADERS}
+    qzeroconfservice.cpp
+)
+
+if(BUILD_SHARED_LIBS)
+    target_compile_definitions(QtZeroConf PRIVATE QT_BUILD_ZEROCONF_LIB)
+else()
+    target_compile_definitions(QtZeroConf PUBLIC QZEROCONF_STATIC)
+endif()
 
 if(${CMAKE_SYSTEM_NAME} STREQUAL "Linux")
     target_sources(QtZeroConf PRIVATE
-        avahi-qt/qt-watch.h
         avahi-qt/qt-watch_p.h
         avahi-qt/qt-watch.cpp
         avahiclient.cpp
     )
-    target_link_libraries(QtZeroConf PRIVATE libavahi)
+    list(APPEND ${PUBLIC_HEADERS}
+        avahi-qt/qt-watch.h
+    )
+    target_link_libraries(QtZeroConf PRIVATE avahi-client)
 endif()
 
 if(APPLE)
@@ -28,21 +43,25 @@ if(APPLE)
     target_link_libraries(QtZeroConf PUBLIC ${CoreServices})
 endif()
 
-target_include_directories(QtZeroConf PUBLIC "${CMAKE_CURRENT_LIST_DIR}")
+target_include_directories(QtZeroConf PUBLIC
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
+    $<INSTALL_INTERFACE:include>
+)
 target_link_libraries(QtZeroConf PUBLIC Qt5::Core Qt5::Network)
 
 if(WIN32)
     target_sources(QtZeroConf PRIVATE
-        qzeroconf.h
         bonjour_p.h
         bonjour.cpp
         bonjour-sdk/dnssd_clientlib.c
         bonjour-sdk/dnssd_clientstub.c
         bonjour-sdk/dnssd_ipc.c
-        )
-    target_link_libraries(QtZeroConf PUBLIC ws2_32 "legacy_stdio_definitions.lib")
+    )
+    target_link_libraries(QtZeroConf PUBLIC ws2_32)
+    if(MSVC)
+        target_link_libraries(QtZeroConf PUBLIC "legacy_stdio_definitions.lib")
+    endif()
     target_compile_definitions(QtZeroConf PRIVATE
-        -DQZEROCONF_STATIC
         -DWIN32
         -D_USRDLL
         -DMDNS_DEBUGMSGS=0
@@ -52,7 +71,6 @@ if(WIN32)
         -D_CRT_SECURE_NO_DEPRECATE
         -D_CRT_SECURE_CPP_OVERLOAD_STANDARD_NAMES=1
         -DNOT_HAVE_SA_LEN)
-    target_compile_definitions(QtZeroConf PUBLIC -DQZEROCONF_STATIC)
     target_include_directories(QtZeroConf PRIVATE "${CMAKE_CURRENT_LIST_DIR}/bonjour-sdk")
 endif()
 
@@ -111,6 +129,30 @@ if(ANDROID)
         ${ACR}/timeeventq.c
         ${ACR}/util.c
         ${ACR}/wide-area.c
-)
+    )
+    list(APPEND ${PUBLIC_HEADERS}
+        avahi-qt/qt-watch.h
+    )
     target_compile_definitions(QtZeroConf PRIVATE HAVE_STRLCPY GETTEXT_PACKAGE HAVE_NETLINK)
+endif()
+
+# install
+set(INSTALL_CMAKEDIR "lib/cmake/${PROJECT_NAME}" CACHE STRING "Installation directory for cmake config files")
+set_target_properties(QtZeroConf PROPERTIES PUBLIC_HEADER
+    "${PUBLIC_HEADERS}"
+)
+install(TARGETS QtZeroConf
+    EXPORT QtZeroConfConfig
+    LIBRARY DESTINATION lib
+    PUBLIC_HEADER DESTINATION include/QtZeroConf
+)
+export(TARGETS QtZeroConf
+    FILE ${CMAKE_CURRENT_BINARY_DIR}/QtZeroConfConfig.cmake
+)
+install(EXPORT QtZeroConfConfig
+    DESTINATION ${INSTALL_CMAKEDIR}
+)
+
+if(BUILD_EXAMPLE)
+    add_subdirectory(example)
 endif()

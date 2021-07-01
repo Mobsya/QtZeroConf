@@ -84,8 +84,6 @@ public:
 
 	static void groupCallback(AvahiEntryGroup *g, AvahiEntryGroupState state, AVAHI_GCC_UNUSED void *userdata)
 	{
-		qint32 ret;
-
 		QZeroConfPrivate *ref = static_cast<QZeroConfPrivate *>(userdata);
 		switch (state) {
 			case AVAHI_ENTRY_GROUP_ESTABLISHED:
@@ -101,29 +99,7 @@ public:
 				ref->group = NULL;
 				emit ref->pub->error(QZeroConf::serviceRegistrationFailed);
 				break;
-			case AVAHI_ENTRY_GROUP_UNCOMMITED:
-				ret = avahi_entry_group_add_service_strlst(g,
-														ref->interface,
-														AVAHI_PROTO_UNSPEC,
-														AVAHI_PUBLISH_UPDATE,
-														ref->name.toUtf8(),
-														ref->type.toUtf8(),
-														ref->domain.toUtf8(),
-														NULL, ref->port, ref->txt);
-				if (ret < 0) {
-					avahi_entry_group_free(g);
-					ref->group = NULL;
-					emit ref->pub->error(QZeroConf::serviceRegistrationFailed);
-					return;
-				}
-
-				ret = avahi_entry_group_commit(g);
-				if (ret < 0) {
-					avahi_entry_group_free(g);
-					ref->group = NULL;
-					emit ref->pub->error(QZeroConf::serviceRegistrationFailed);
-				}
-				break;
+			case AVAHI_ENTRY_GROUP_UNCOMMITED: break;
 			case AVAHI_ENTRY_GROUP_REGISTERING: break;
 		}
 	}
@@ -150,7 +126,7 @@ public:
 			break;
 		case AVAHI_BROWSER_NEW:
 			if (!ref->resolvers.contains(key))
-				ref->resolvers.insert(key, avahi_service_resolver_new(ref->client, interface, protocol, name, type, domain, AVAHI_PROTO_UNSPEC, AVAHI_LOOKUP_USE_MULTICAST, resolveCallback, ref));
+				ref->resolvers.insert(key, avahi_service_resolver_new(ref->client, interface, protocol, name, type, domain, ref->aProtocol, AVAHI_LOOKUP_USE_MULTICAST, resolveCallback, ref));
 			break;
 		case AVAHI_BROWSER_REMOVE:
 			if (!ref->resolvers.contains(key))
@@ -195,13 +171,14 @@ public:
 			if (ref->pub->services.contains(key))
 				zcs = ref->pub->services[key];
 			else {
+				zcs = QZeroConfService(new QZeroConfServiceData);
 				newRecord = 1;
-				zcs.setName(name);
-				zcs.setType(type);
-				zcs.setDomain(domain);
-				zcs.setHost(host_name);
-				zcs.setInterfaceIndex(interface);
-				zcs.setPort(port);
+				zcs->m_name = name;
+				zcs->m_type = type;
+				zcs->m_domain = domain;
+				zcs->m_host = host_name;
+				zcs->m_interfaceIndex = interface;
+				zcs->m_port = port;
             }
             zcs.setTxt({});
             while (txt)	// get txt records
@@ -209,9 +186,9 @@ public:
                 QByteArray avahiText((const char *)txt->text, txt->size);
                 QList<QByteArray> pair = avahiText.split('=');
                 if (pair.size() == 2)
-                    zcs.appendTxt(pair.at(0), pair.at(1));
+						zcs->m_txt[pair.at(0)] = pair.at(1);
                 else
-                    zcs.appendTxt(pair.at(0));
+						zcs->m_txt[pair.at(0)] = "";
                 txt = txt->next;
             }
             ref->pub->services.insert(key, zcs);
@@ -219,10 +196,7 @@ public:
 			char a[AVAHI_ADDRESS_STR_MAX];
 			avahi_address_snprint(a, sizeof(a), address);
 			QHostAddress addr(a);
-			if (protocol == AVAHI_PROTO_INET6)
-				zcs.setIpv6(addr);
-			else if (protocol == AVAHI_PROTO_INET)
-				zcs.setIp(addr);
+			zcs->setIp(addr);
 
 			if (newRecord)
 				emit ref->pub->serviceAdded(zcs);
@@ -261,10 +235,9 @@ public:
 	AvahiClient *client;
 	AvahiEntryGroup *group;
 	AvahiServiceBrowser *browser;
+	AvahiProtocol aProtocol;
 	QMap <QString, AvahiServiceResolver *> resolvers;
 	AvahiStringList *txt;
-	QString name, type, domain;
-	quint16 port;
 	int interface = -1;
 };
 
@@ -295,13 +268,24 @@ void QZeroConf::startServicePublish(const char *name,
 		return;
 	}
 
-	pri->name = name;
-	pri->type = type;
-	pri->domain = domain;
-	pri->port = port;
+	pri->group = avahi_entry_group_new(pri->client, QZeroConfPrivate::groupCallback, pri);
 	pri->interface = (int(opts) & int(service_option::localhost_only)) ? QZeroConfPrivate::loopback_index() : -1;
 
-	pri->group = avahi_entry_group_new(pri->client, QZeroConfPrivate::groupCallback, pri);
+	int ret = avahi_entry_group_add_service_strlst(pri->group, AVAHI_IF_UNSPEC, AVAHI_PROTO_UNSPEC, AVAHI_PUBLISH_UPDATE, name, type, domain, NULL, port, pri->txt);
+	if (ret < 0) {
+		avahi_entry_group_free(pri->group);
+		pri->group = NULL;
+		emit error(QZeroConf::serviceRegistrationFailed);
+		return;
+	}
+
+	ret = avahi_entry_group_commit(pri->group);
+	if (ret < 0) {
+		pri->group = NULL;
+		avahi_entry_group_free(pri->group);
+		emit error(QZeroConf::serviceRegistrationFailed);
+	}
+
 	if (!pri->group)
 		emit error(QZeroConf::serviceRegistrationFailed);
 }
@@ -344,20 +328,19 @@ void QZeroConf::clearServiceTxtRecords()
 
 void QZeroConf::startBrowser(QString type, QAbstractSocket::NetworkLayerProtocol protocol)
 {
- 	AvahiProtocol	avahiProtocol;
-
 	if (pri->browser)
 		emit error(QZeroConf::browserFailed);
 
 	switch (protocol) {
-		case QAbstractSocket::IPv4Protocol: avahiProtocol = AVAHI_PROTO_INET; break;
-		case QAbstractSocket::IPv6Protocol: avahiProtocol = AVAHI_PROTO_INET6; break;
-		case QAbstractSocket::AnyIPProtocol: avahiProtocol = AVAHI_PROTO_UNSPEC; break;
-		default: avahiProtocol = AVAHI_PROTO_INET; break;
+		case QAbstractSocket::IPv4Protocol: pri->aProtocol = AVAHI_PROTO_INET; break;
+		case QAbstractSocket::IPv6Protocol: pri->aProtocol = AVAHI_PROTO_INET6; break;
+		default:
+			qDebug("QZeroConf::startBrowser() - unsupported protocol, using IPv4");
+			pri->aProtocol = AVAHI_PROTO_INET;
+			break;
 	};
 
-	if(pri->client)
-		pri->browser = avahi_service_browser_new(pri->client, AVAHI_IF_UNSPEC, avahiProtocol, type.toUtf8(), NULL, AVAHI_LOOKUP_USE_MULTICAST, QZeroConfPrivate::browseCallback, pri);
+	pri->browser = avahi_service_browser_new(pri->client, AVAHI_IF_UNSPEC, pri->aProtocol, type.toUtf8(), NULL, AVAHI_LOOKUP_USE_MULTICAST, QZeroConfPrivate::browseCallback, pri);
 	if (!pri->browser)
 		emit error(QZeroConf::browserFailed);
 }
